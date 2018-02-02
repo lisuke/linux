@@ -601,21 +601,16 @@ EXPORT_SYMBOL(flush_all_to_thread);
 
 #ifdef CONFIG_PPC_ADV_DEBUG_REGS
 void do_send_trap(struct pt_regs *regs, unsigned long address,
-		  unsigned long error_code, int signal_code, int breakpt)
+		  unsigned long error_code, int breakpt)
 {
-	siginfo_t info;
-
-	current->thread.trap_nr = signal_code;
+	current->thread.trap_nr = TRAP_HWBKPT;
 	if (notify_die(DIE_DABR_MATCH, "dabr_match", regs, error_code,
 			11, SIGSEGV) == NOTIFY_STOP)
 		return;
 
 	/* Deliver the signal to userspace */
-	info.si_signo = SIGTRAP;
-	info.si_errno = breakpt;	/* breakpoint or watchpoint id */
-	info.si_code = signal_code;
-	info.si_addr = (void __user *)address;
-	force_sig_info(SIGTRAP, &info, current);
+	force_sig_ptrace_errno_trap(breakpt, /* breakpoint or watchpoint id */
+				    (void __user *)address);
 }
 #else	/* !CONFIG_PPC_ADV_DEBUG_REGS */
 void do_break (struct pt_regs *regs, unsigned long address,
@@ -1403,7 +1398,7 @@ void show_regs(struct pt_regs * regs)
 
 	printk("NIP:  "REG" LR: "REG" CTR: "REG"\n",
 	       regs->nip, regs->link, regs->ctr);
-	printk("REGS: %p TRAP: %04lx   %s  (%s)\n",
+	printk("REGS: %px TRAP: %04lx   %s  (%s)\n",
 	       regs, regs->trap, print_tainted(), init_utsname()->release);
 	printk("MSR:  "REG" ", regs->msr);
 	print_msr_bits(regs->msr);

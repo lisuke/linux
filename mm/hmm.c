@@ -391,11 +391,11 @@ again:
 		if (pmd_protnone(pmd))
 			return hmm_vma_walk_clear(start, end, walk);
 
-		if (!pmd_access_permitted(pmd, write_fault))
+		if (write_fault && !pmd_write(pmd))
 			return hmm_vma_walk_clear(start, end, walk);
 
 		pfn = pmd_pfn(pmd) + pte_index(addr);
-		flag |= pmd_access_permitted(pmd, WRITE) ? HMM_PFN_WRITE : 0;
+		flag |= pmd_write(pmd) ? HMM_PFN_WRITE : 0;
 		for (; addr < end; addr += PAGE_SIZE, i++, pfn++)
 			pfns[i] = hmm_pfn_t_from_pfn(pfn) | flag;
 		return 0;
@@ -418,15 +418,13 @@ again:
 		}
 
 		if (!pte_present(pte)) {
-			swp_entry_t entry;
+			swp_entry_t entry = pte_to_swp_entry(pte);
 
 			if (!non_swap_entry(entry)) {
 				if (hmm_vma_walk->fault)
 					goto fault;
 				continue;
 			}
-
-			entry = pte_to_swp_entry(pte);
 
 			/*
 			 * This is a special swap entry, ignore migration, use
@@ -456,11 +454,11 @@ again:
 			continue;
 		}
 
-		if (!pte_access_permitted(pte, write_fault))
+		if (write_fault && !pte_write(pte))
 			goto fault;
 
 		pfns[i] = hmm_pfn_t_from_pfn(pte_pfn(pte)) | flag;
-		pfns[i] |= pte_access_permitted(pte, WRITE) ? HMM_PFN_WRITE : 0;
+		pfns[i] |= pte_write(pte) ? HMM_PFN_WRITE : 0;
 		continue;
 
 fault:
